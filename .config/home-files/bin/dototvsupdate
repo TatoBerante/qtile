@@ -1,0 +1,208 @@
+#!/bin/bash
+
+# Clear the screen
+clear ;
+
+# Variables
+today=$(date +%y%m%d) ;
+#today=$(date +%s) ;
+updatedir=~/public_html/basep/update-source/
+GREEN="\e[92m"
+LRED="\e[31m"
+MAGENTA="\e[95m"
+ENDCOLOR="\e[0m"
+start_time=$(date +%s) ;
+OLDIFS=$IFS
+IFS="|"
+NUMLINE=0
+CHANGHES=0
+NEWCLI="Clientes-new.csv"
+OLDCLI="Clientes-old.csv"
+NEWCXS="Comercial_filtro_fechasPV+Recibo-new.csv"
+OLDCXS="Comercial_filtro_fechasPV+Recibo-old.csv"
+
+# Create directory for hosting files backup
+mkdir "$updatedir"cxs-bu/full_bd_backup/"$today" ;
+echo -e ${GREEN}"Created directory $today for later use."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Preserve old files for later purge
+cp "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"Comercial_filtro_fechasPV+Recibo-old.csv &&
+cp "$updatedir"Clientes.csv "$updatedir"Clientes-old.csv &&
+
+# Starting FTP jobs
+echo -e ${MAGENTA}"Getting SAI FTP files:"${ENDCOLOR} ;
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Clientes.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Medicos.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" instituciones.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Vendedores.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Comercial_filtro_fechasPV+Recibo.csv
+echo -e ${GREEN}"All your FTP files are belong to us."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# List original encodings
+echo -e ${MAGENTA}"Original FTP file encodings:"${ENDCOLOR} ;
+uchardet "$updatedir"*.csv
+echo " " 
+
+# Rename original files
+mv "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"Comercial_filtro_fechasPV+ReciboX.csv &&
+mv "$updatedir"Clientes.csv "$updatedir"ClientesX.csv &&
+mv "$updatedir"instituciones.csv "$updatedir"institucionesX.csv &&
+mv "$updatedir"Medicos.csv "$updatedir"MedicosX.csv &&
+mv "$updatedir"Vendedores.csv "$updatedir"VendedoresX.csv &&
+echo -e ${GREEN}"All FTP files have been renamed for transcoding."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Transcode FTP files to UTF-8
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"Comercial_filtro_fechasPV+ReciboX.csv -o "$updatedir"Comercial_filtro_fechasPV+Recibo.csv &&
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"ClientesX.csv -o "$updatedir"Clientes.csv &&
+iconv -f WINDOWS-1252 -t UTF-8//TRANSLIT "$updatedir"institucionesX.csv -o "$updatedir"instituciones.csv &&
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"MedicosX.csv -o "$updatedir"Medicos.csv &&
+iconv -f ISO-8859-10 -t UTF-8//TRANSLIT "$updatedir"VendedoresX.csv -o "$updatedir"Vendedores.csv &&
+echo -e ${GREEN}"All FTP files have been transcoded."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Remove old files
+rm "$updatedir"*X.csv
+
+# List final encodings
+echo -e ${MAGENTA}"Final FTP file encodings:"${ENDCOLOR} ;
+uchardet "$updatedir"*.csv
+echo " " ;
+sleep 3 &&
+
+# Backup main cx file
+cp "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"cxs-bu/Comercial_filtro_fechasPV+Recibo_"$today".csv
+echo -e ${GREEN}"Main file back up DONE."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+################################
+#                              #
+# PRE PROCESS FILES GOES HERE! #
+#                              #
+################################
+
+echo -e ${MAGENTA}"Starting the purge:"${ENDCOLOR} ;
+
+mv "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"Comercial_filtro_fechasPV+Recibo-new.csv &&
+mv "$updatedir"Clientes.csv "$updatedir"Clientes-new.csv &&
+
+rm Comercial_filtro_fechasPV+Recibo.csv 2> /dev/null                # 2> = reroute error signal (msg) to null
+rm Clientes.csv 2> /dev/null                                        # 2> = reroute error signal (msg) to null
+touch Comercial_filtro_fechasPV+Recibo.csv
+touch Clientes.csv
+
+RECORDS=$(wc -l < $NEWCLI)
+
+show_cursor() {
+    tput cnorm
+    exit
+}
+hide_cursor() {
+    tput civis
+}
+
+trap show_cursor INT TERM
+hide_cursor
+
+while read -r row
+do 
+    ((NUMLINE++))
+    let "PERCENT = (COUNTER * 100) / RECORDS"
+    PER=$(bc <<< "scale=2;($NUMLINE * 100) / $RECORDS")
+    if [ $NUMLINE -gt 2 ]                                           # gt operator is only for numeric values
+    then
+        set -- $row                                                 # 'breaks' a string based on IFS separator
+        oldrow=$(grep $1 $OLDCLI)                                   # $1 is the first field in the 'broken' string 
+        if [ "$row" != "$oldrow" ]                                  # != operator is for strings
+        then
+            echo "$row" >> Clientes.csv                             # changed record is appended  to the changes file
+            #echo -e "Saved RECNO $1 \n"
+            ((CHANGHES++))
+        #else
+        #    echo -e "Line $NUMLINE is the same\n"
+        fi
+    else
+        echo "$row" >> Clientes.csv                                 # mantain header in changes file
+        #echo -e "Line $NUMLINE ignored\n"
+    fi
+    echo -ne "Working...\tLine: $NUMLINE \t$PER %\r"
+done < $NEWCLI # File in which the while is performed
+echo -e "\n\nSaved $CHANGHES changes in Clientes.csv."
+echo " " ;
+sleep 3 &&
+
+unset NUMLINE CHANGES
+NUMLINE=0
+CHANGES=0
+
+while read -r row
+do 
+    ((NUMLINE++))
+    let "PERCENT = (COUNTER * 100) / RECORDS"
+    PER=$(bc <<< "scale=2;($NUMLINE * 100) / $RECORDS")
+    if [ $NUMLINE -gt 2 ]                                           # gt operator is only for numeric values
+    then
+        set -- $row                                                 # 'breaks' a string based on IFS separator
+        oldrow=$(grep $1 $OLDCXS)                                   # $1 is the first field in the 'broken' string 
+        if [ "$row" != "$oldrow" ]                                  # != operator is for strings
+        then
+            echo "$row" >> Comercial_filtro_fechasPV+Recibo.csv     # changed record is appended  to the changes file
+            #echo -e "Saved RECNO $1 \n"
+            ((CHANGHES++))
+        #else
+        #    echo -e "Line $NUMLINE is the same\n"
+        fi
+    else
+        echo "$row" >> Comercial_filtro_fechasPV+Recibo.csv         # mantain header in changes file
+        #echo -e "Line $NUMLINE ignored\n"
+    fi
+    echo -ne "Working...\tLine: $NUMLINE \t$PER %\r"
+done < $NEWCXS # File in which the while is performed
+echo -e "\n\nSaved $CHANGHES changes in Comercial_filtro_fechasPV+Recibo.csv."
+
+IFS=$OLDIFS
+
+end_time=$(date +%s) ;
+runtime=$((end_time - start_time))
+echo -e "\nRuntime: "$runtime" seconds.\n" ;
+show_cursor
+
+echo -e ${GREEN}"Habemus lil files."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+################################
+#                              #
+# PRE PROCESS FILES ENDS HERE! #
+#                              #
+################################
+
+# Upload transcoded files to hosting
+echo -e ${MAGENTA}"Uploading transcoded files:"${ENDCOLOR} ;
+ncftpput -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link /public_html/hm2/update-source  "$updatedir"*.csv
+echo -e ${GREEN}"Site is ready for data update!"${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Final reminder
+echo -e ${LRED}"REMEMBER TO BACK UP IMAGES AND TABLES."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Back up hosting image files (NO GO, TAKES TOOO LONG!)
+# echo -e ${MAGENTA}"Getting hosting files:"${ENDCOLOR} ;
+# ncftpget -R -T -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link "$updatedir"cxs-bu/full_bd_backup/"$today" /public_html/hm2/uploaded-docs
+# echo -e ${GREEN}"All your hosting files are belong to us."${ENDCOLOR} ;
+# echo " " ;
+# sleep 3 &&
+
+# Exit message
+echo -e ${GREEN}"Working directory clean and all tasks DONE."${ENDCOLOR} ;
+echo " " ;

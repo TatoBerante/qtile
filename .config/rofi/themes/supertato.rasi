@@ -1,0 +1,59 @@
+/*******************
+
+SuperTato Rofi Theme
+
+********************/
+
+* {
+    foreground: #ffffff;
+    backlight:   #ccffeedd;
+    background-color: #000000;
+    red: #ff0000;
+    lime: #ccff66;
+    font: "JetBrainsMono Nerd Font 10";
+    highlight: underline bold #ffffff;
+}
+
+inputbar {
+    text-color: @red;
+    padding: 11px;
+    background-color: @lime;
+    border: 2px 2px 2px 2px;
+    border-color: @foreground;
+    font: "JetBrainsMono Nerd Font 10";
+}
+
+window {
+    location: center;
+    anchor:   center;
+    padding: 5px;
+    border:  10px;
+    border-radius: 20px;
+    color: @red;
+    background-color: @background;
+    children:  [mainbox];
+    orientation: horizontal;
+    width: 450px;
+}
+
+mainbox {
+    spacing: 10;
+}
+
+listview {
+    padding: 0;
+    border-color: @foreground;
+    border: 0px 2px 2px 2px;
+    background-color: @background;
+    dynamic: false;
+    lines: 10;
+}
+
+textbox-prompt-colon {
+	padding: 0px 0px;
+    expand:     false;
+    str:        "";
+    margin:     0 ;
+    text-color: #ffffff;
+    background-color:@background;
+}

@@ -1,0 +1,20 @@
+#!/bin/bash
+start=$(date +%s) ;
+clear
+echo 'FTP TEST'
+echo '========'
+cd ~/Documents/ftptest/
+touch "$start".txt
+ls -ahl
+echo ""
+sleep 2
+ncftpput -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link /public_html/ftptest  ~/Documents/ftptest/*.txt
+#ncftpget -R -T -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link ~/Documents/ftptest/ /public_html/ftptest/filez
+echo ""
+ls -ahl
+
+end=$(date +%s) ;
+
+runtime=$((end-start)) ;
+echo "Runtime: "$runtime" seconds " ;
+echo ""

@@ -1,0 +1,3 @@
+/*@theme "/usr/share/rofi/themes/android_notification.rasi"*/
+/*@theme "~/.config/rofi-old/themes/android.rasi"*/
+@theme "~/.config/rofi/themes/pseudoandroid.rasi"

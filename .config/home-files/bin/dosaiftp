@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# Clear the screen
+clear ;
+
+# Variables
+today=$(date +%y%m%d) ;
+#today=$(date +%s) ;
+updatedir=~/public_html/basep/update-source/
+GREEN="\e[92m"
+LRED="\e[31m"
+MAGENTA="\e[95m"
+ENDCOLOR="\e[0m"
+
+# Create directory for hosting files backup
+mkdir "$updatedir"cxs-bu/full_bd_backup/"$today" ;
+echo -e ${GREEN}"Created directory $today for later use."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Starting FTP jobs
+echo -e ${MAGENTA}"Getting SAI FTP files:"${ENDCOLOR} ;
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Clientes.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Medicos.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" instituciones.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Vendedores.csv
+ncftpget -v -u anonymous -p '' 200.110.219.83 "$updatedir" Comercial_filtro_fechasPV+Recibo.csv
+echo -e ${GREEN}"All your FTP files are belong to us."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# List original encodings
+echo -e ${MAGENTA}"Original FTP file encodings:"${ENDCOLOR} ;
+uchardet "$updatedir"*.csv
+echo " " 
+
+# Rename original files
+mv "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"Comercial_filtro_fechasPV+ReciboX.csv &&
+mv "$updatedir"Clientes.csv "$updatedir"ClientesX.csv &&
+mv "$updatedir"instituciones.csv "$updatedir"institucionesX.csv &&
+mv "$updatedir"Medicos.csv "$updatedir"MedicosX.csv &&
+mv "$updatedir"Vendedores.csv "$updatedir"VendedoresX.csv &&
+echo -e ${GREEN}"All FTP files have been renamed for transcoding."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Transcode FTP files to UTF-8
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"Comercial_filtro_fechasPV+ReciboX.csv -o "$updatedir"Comercial_filtro_fechasPV+Recibo.csv &&
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"ClientesX.csv -o "$updatedir"Clientes.csv &&
+iconv -f WINDOWS-1252 -t UTF-8//TRANSLIT "$updatedir"institucionesX.csv -o "$updatedir"instituciones.csv &&
+iconv -f ISO-8859-1 -t UTF-8//TRANSLIT "$updatedir"MedicosX.csv -o "$updatedir"Medicos.csv &&
+iconv -f ISO-8859-10 -t UTF-8//TRANSLIT "$updatedir"VendedoresX.csv -o "$updatedir"Vendedores.csv &&
+echo -e ${GREEN}"All FTP files have been transcoded."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Remove old files
+rm "$updatedir"*X.csv
+
+# List final encodings
+echo -e ${MAGENTA}"Final FTP file encodings:"${ENDCOLOR} ;
+uchardet "$updatedir"*.csv
+echo " " ;
+sleep 3 &&
+
+# Backup main cx file
+cp "$updatedir"Comercial_filtro_fechasPV+Recibo.csv "$updatedir"cxs-bu/Comercial_filtro_fechasPV+Recibo_"$today".csv
+echo -e ${GREEN}"Main file back up DONE."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Upload transcoded files to hosting
+echo -e ${MAGENTA}"Uploading transcoded files:"${ENDCOLOR} ;
+ncftpput -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link /public_html/hm2/update-source  "$updatedir"*.csv
+echo -e ${GREEN}"Site is ready for data update!"${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Final reminder
+echo -e ${LRED}"REMEMBER TO BACK UP IMAGES AND TABLES."${ENDCOLOR} ;
+echo " " ;
+sleep 3 &&
+
+# Back up hosting image files (NO GO, TAKES TOOO LONG!)
+# echo -e ${MAGENTA}"Getting hosting files:"${ENDCOLOR} ;
+# ncftpget -R -T -v -u db457f5 -p American1300 ftp.db457f76c27439711.temporary.link "$updatedir"cxs-bu/full_bd_backup/"$today" /public_html/hm2/uploaded-docs
+# echo -e ${GREEN}"All your hosting files are belong to us."${ENDCOLOR} ;
+# echo " " ;
+# sleep 3 &&
+
+# Exit message
+echo -e ${GREEN}"Working directory clean and all tasks DONE."${ENDCOLOR} ;
+echo " " ;
